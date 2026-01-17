@@ -73,7 +73,7 @@ Berikan analisis dalam format JSON dengan struktur berikut (PASTIKAN HANYA OUTPU
       "kategori_story": "Transformasi Bisnis | Aksi Korporasi | Pemulihan Fundamental | Kondisi Makro",
       "deskripsi_katalis": "deskripsi singkat katalis",
       "logika_ekonomi_pasar": "penjelasan logika ekonomi/pasar",
-      "potensi_dampak_harga": "dampak terhadap harga saham negatif/netral/positif"
+      "potensi_dampak_harga": "dampak terhadap harga saham negatif/netral/positif dan alasan"
     }
   ],
   "swot_analysis": {
