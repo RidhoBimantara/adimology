@@ -1,16 +1,24 @@
 import { fetchWatchlist, fetchMarketDetector, fetchOrderbook, getTopBroker, fetchEmitenInfo } from '../../lib/stockbit';
 import { calculateTargets } from '../../lib/calculations';
-import { saveWatchlistAnalysis, updatePreviousDayRealPrice } from '../../lib/supabase';
+import { 
+  saveWatchlistAnalysis, 
+  updatePreviousDayRealPrice,
+  createBackgroundJobLog,
+  appendBackgroundJobLogEntry,
+  updateBackgroundJobLog
+} from '../../lib/supabase';
 
 export default async (req: Request) => {
   const startTime = Date.now();
+  let jobLogId: number | null = null;
+
   console.log('[Background] Starting analysis job...');
 
   try {
     // Get current date for analysis
     const today = new Date().toISOString().split('T')[0];
 
-    // Fetch watchlist
+    // Fetch watchlist first to know total items
     const watchlistResponse = await fetchWatchlist();
     const watchlistItems = watchlistResponse.data?.result || [];
 
@@ -19,8 +27,17 @@ export default async (req: Request) => {
       return new Response(JSON.stringify({ success: true, message: 'No items' }), { status: 200 });
     }
 
+    // Create job log entry
+    try {
+      const jobLog = await createBackgroundJobLog('analyze-watchlist', watchlistItems.length);
+      jobLogId = jobLog.id;
+      console.log(`[Background] Created job log with ID: ${jobLogId}`);
+    } catch (logError) {
+      console.error('[Background] Failed to create job log, continuing without logging:', logError);
+    }
+
     const results = [];
-    const errors = [];
+    const errors: { emiten: string; error: string }[] = [];
 
     // Analyze each watchlist item
     for (const item of watchlistItems) {
@@ -36,7 +53,16 @@ export default async (req: Request) => {
 
         const brokerData = getTopBroker(marketDetectorData);
         if (!brokerData) {
-          errors.push({ emiten, error: 'No broker data' });
+          const errorMsg = 'No broker data available';
+          errors.push({ emiten, error: errorMsg });
+          
+          if (jobLogId) {
+            await appendBackgroundJobLogEntry(jobLogId, {
+              level: 'warn',
+              message: errorMsg,
+              emiten,
+            });
+          }
           continue;
         }
 
@@ -93,19 +119,120 @@ export default async (req: Request) => {
         }
 
         results.push({ emiten, status: 'success' });
+
+        // Log successful analysis
+        if (jobLogId) {
+          await appendBackgroundJobLogEntry(jobLogId, {
+            level: 'info',
+            message: `Successfully analyzed`,
+            emiten,
+            details: { 
+              harga: marketData.harga, 
+              targetRealistis: calculated.targetRealistis1 
+            },
+          });
+        }
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         console.error(`[Background] Error analyzing ${emiten}:`, error);
-        errors.push({ emiten, error: String(error) });
+        errors.push({ emiten, error: errorMessage });
+
+        // Log error for this emiten
+        if (jobLogId) {
+          // Check if it's a token error
+          const isTokenError = errorMessage.includes('401') || 
+                               errorMessage.includes('unauthorized') ||
+                               errorMessage.includes('token') ||
+                               errorMessage.includes('authentication');
+          
+          await appendBackgroundJobLogEntry(jobLogId, {
+            level: 'error',
+            message: isTokenError ? 'Token authentication failed' : errorMessage,
+            emiten,
+            details: { 
+              isTokenError,
+              originalError: errorMessage 
+            },
+          });
+        }
       }
     }
 
     const duration = (Date.now() - startTime) / 1000;
     console.log(`[Background] Job completed in ${duration}s. Success: ${results.length}, Errors: ${errors.length}`);
 
-    return new Response(JSON.stringify({ success: true, results: results.length, errors: errors.length }), { status: 200 });
+    // Update job log with final status
+    if (jobLogId) {
+      const hasErrors = errors.length > 0;
+      await updateBackgroundJobLog(jobLogId, {
+        status: hasErrors && results.length === 0 ? 'failed' : 'completed',
+        success_count: results.length,
+        error_count: errors.length,
+        error_message: hasErrors ? `${errors.length} items failed` : undefined,
+        metadata: { 
+          duration_seconds: duration,
+          date: today,
+        },
+      });
+    }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      results: results.length, 
+      errors: errors.length,
+      jobLogId,
+    }), { status: 200 });
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[Background] Critical error:', error);
-    return new Response(JSON.stringify({ success: false, error: String(error) }), { status: 500 });
+
+    // Check if it's a token-related error
+    const isTokenError = errorMessage.includes('401') || 
+                         errorMessage.includes('unauthorized') ||
+                         errorMessage.includes('token') ||
+                         errorMessage.includes('authentication');
+
+    // Update job log with failure
+    if (jobLogId) {
+      await appendBackgroundJobLogEntry(jobLogId, {
+        level: 'error',
+        message: isTokenError 
+          ? 'Stockbit token expired or invalid. Please refresh your token.'
+          : errorMessage,
+        details: { isTokenError, error: errorMessage }
+      });
+
+      await updateBackgroundJobLog(jobLogId, {
+        status: 'failed',
+        error_message: isTokenError 
+          ? 'Stockbit token expired or invalid. Please refresh your token.'
+          : errorMessage,
+        metadata: { 
+          isTokenError,
+          duration_seconds: (Date.now() - startTime) / 1000,
+        },
+      });
+    } else {
+      // If we couldn't create a job log, try to create one now with the error
+      try {
+        const failedLog = await createBackgroundJobLog('analyze-watchlist', 0);
+        await updateBackgroundJobLog(failedLog.id, {
+          status: 'failed',
+          error_message: isTokenError 
+            ? 'Stockbit token expired or invalid. Please refresh your token.'
+            : errorMessage,
+          metadata: { isTokenError },
+        });
+      } catch (logError) {
+        console.error('[Background] Failed to log critical error:', logError);
+      }
+    }
+
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: errorMessage,
+      isTokenError,
+    }), { status: 500 });
   }
 };

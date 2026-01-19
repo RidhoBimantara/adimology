@@ -2,7 +2,8 @@ import type { Config } from "@netlify/functions";
 
 export default async (req: Request) => {
   try {
-    const baseUrl = process.env.URL || 'http://localhost:3000';
+    // Priority: NETLIFY_FUNCTION_URL (local dev) > process.env.URL (production) > default localhost:3000
+    const baseUrl = process.env.NETLIFY_FUNCTION_URL || process.env.URL || 'http://localhost:3000';
     
     console.log(`[Scheduler] Triggering background job at ${baseUrl}/.netlify/functions/analyze-watchlist-background`);
 

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import TokenStatusIndicator from './TokenStatusIndicator';
+import JobStatusIndicator from './JobStatusIndicator';
 
 const Navbar = () => {
   const pathname = usePathname();
@@ -16,9 +17,9 @@ const Navbar = () => {
               <rect x="49" y="10" width="2" height="80" fill="currentColor" />
               <rect x="44" y="32" width="12" height="38" fill="currentColor" />
               <path d="M22 30C40 18 60 22 80 32" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-              <path d="M22 30C18 30 16 38 22 42C24 44 28 42 28 38" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="22" y1="30" x2="44" y2="70" stroke="currentColor" strokeWidth="1.5" />
-              <line x1="80" y1="32" x2="56" y2="70" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M22 30C18 30 16 38 22 42C24 44 28 42 28 38" stroke="currentColor" strokeLinecap="round" strokeWidth="2.5" />
+              <line stroke="currentColor" strokeWidth="1.5" x1="22" x2="44" y1="30" y2="70" />
+              <line stroke="currentColor" strokeWidth="1.5" x1="80" x2="56" y1="32" y2="70" />
             </svg>
           </div>
           <div className="navbar-content">
@@ -27,7 +28,7 @@ const Navbar = () => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <div className="nav-links" style={{ display: 'flex', gap: '1.5rem' }}>
             <Link 
               href="/" 
@@ -58,7 +59,10 @@ const Navbar = () => {
               History
             </Link>
           </div>
-          <TokenStatusIndicator />
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <JobStatusIndicator />
+            <TokenStatusIndicator />
+          </div>
         </div>
       </div>
     </nav>

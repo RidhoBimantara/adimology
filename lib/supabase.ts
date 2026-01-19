@@ -430,3 +430,157 @@ export async function getAgentStoriesByEmiten(emiten: string, limit: number = 20
   return data || [];
 }
 
+/**
+ * Create a new background job log entry
+ */
+export async function createBackgroundJobLog(jobName: string, totalItems: number = 0) {
+  const { data, error } = await supabase
+    .from('background_job_logs')
+    .insert({
+      job_name: jobName,
+      status: 'running',
+      total_items: totalItems,
+      log_entries: [],
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating background job log:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+/**
+ * Append a log entry to an existing job log
+ */
+export async function appendBackgroundJobLogEntry(
+  jobId: number,
+  entry: {
+    level: 'info' | 'warn' | 'error';
+    message: string;
+    emiten?: string;
+    details?: Record<string, unknown>;
+  }
+) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    ...entry,
+  };
+
+  // Use raw SQL to append to JSONB array for atomic operation
+  const { error } = await supabase.rpc('append_job_log_entry', {
+    p_job_id: jobId,
+    p_entry: logEntry,
+  });
+
+  // If RPC doesn't exist, fallback to fetch-and-update
+  if (error && error.code === 'PGRST202') {
+    const { data: current } = await supabase
+      .from('background_job_logs')
+      .select('log_entries')
+      .eq('id', jobId)
+      .single();
+
+    const entries = current?.log_entries || [];
+    entries.push(logEntry);
+
+    await supabase
+      .from('background_job_logs')
+      .update({ log_entries: entries })
+      .eq('id', jobId);
+  } else if (error) {
+    console.error('Error appending job log entry:', error);
+  }
+}
+
+/**
+ * Update background job log with final status
+ */
+export async function updateBackgroundJobLog(
+  jobId: number,
+  data: {
+    status: 'completed' | 'failed';
+    success_count?: number;
+    error_count?: number;
+    error_message?: string;
+    metadata?: Record<string, unknown>;
+  }
+) {
+  const { data: result, error } = await supabase
+    .from('background_job_logs')
+    .update({
+      ...data,
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', jobId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating background job log:', error);
+    throw error;
+  }
+
+  return result;
+}
+
+/**
+ * Get background job logs with pagination
+ */
+export async function getBackgroundJobLogs(filters?: {
+  jobName?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  let query = supabase
+    .from('background_job_logs')
+    .select('*', { count: 'exact' })
+    .order('started_at', { ascending: false });
+
+  if (filters?.jobName) {
+    query = query.eq('job_name', filters.jobName);
+  }
+  if (filters?.status) {
+    query = query.eq('status', filters.status);
+  }
+  if (filters?.limit) {
+    query = query.limit(filters.limit);
+  }
+  if (filters?.offset) {
+    query = query.range(filters.offset, filters.offset + (filters.limit || 20) - 1);
+  }
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    console.error('Error fetching background job logs:', error);
+    throw error;
+  }
+
+  return { data: data || [], count };
+}
+
+/**
+ * Get the latest job log for a specific job name
+ */
+export async function getLatestBackgroundJobLog(jobName: string) {
+  const { data, error } = await supabase
+    .from('background_job_logs')
+    .select('*')
+    .eq('job_name', jobName)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error fetching latest job log:', error);
+  }
+
+  return data || null;
+}
+
+

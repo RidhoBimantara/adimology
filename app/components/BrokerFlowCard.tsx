@@ -93,6 +93,7 @@ export default function BrokerFlowCard({ emiten }: BrokerFlowCardProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lookbackDays, setLookbackDays] = useState<LookbackDays>(7);
+  const [selectedStatus, setSelectedStatus] = useState<string[]>(['Bandar', 'Whale', 'Retail', 'Mix']);
 
   useEffect(() => {
     if (!emiten) return;
@@ -102,7 +103,8 @@ export default function BrokerFlowCard({ emiten }: BrokerFlowCardProps) {
       setError(null);
       
       try {
-        const response = await fetch(`/api/broker-flow?emiten=${emiten}&lookback_days=${lookbackDays}`);
+        const statusParam = selectedStatus.length > 0 ? selectedStatus.join(',') : 'None';
+        const response = await fetch(`/api/broker-flow?emiten=${emiten}&lookback_days=${lookbackDays}&broker_status=${statusParam}`);
         const json = await response.json();
         
         if (!json.success) {
@@ -118,25 +120,59 @@ export default function BrokerFlowCard({ emiten }: BrokerFlowCardProps) {
     };
 
     fetchData();
-  }, [emiten, lookbackDays]);
+  }, [emiten, lookbackDays, selectedStatus]);
 
   const filterOptions: LookbackDays[] = [1, 7, 14, 21];
+  const statusOptions = [
+    { id: 'Bandar', label: 'Smart Money' },
+    { id: 'Whale', label: 'Whale' },
+    { id: 'Retail', label: 'Retail' },
+    { id: 'Mix', label: 'Mix' }
+  ];
+
+  const toggleStatus = (status: string) => {
+    setSelectedStatus(prev => 
+      prev.includes(status) 
+        ? prev.filter(s => s !== status) 
+        : [...prev, status]
+    );
+  };
 
   return (
     <div className="broker-flow-card">
       {/* Header */}
       <div className="broker-flow-header">
         <span className="broker-flow-title">Broker Flow</span>
-        <div className="broker-flow-filters">
-          {filterOptions.map((days) => (
-            <button
-              key={days}
-              className={`broker-flow-filter-btn ${lookbackDays === days ? 'active' : ''}`}
-              onClick={() => setLookbackDays(days)}
-            >
-              {days}D
-            </button>
-          ))}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Status Filters */}
+          <div className="broker-flow-filters">
+            {statusOptions.map((opt) => (
+              <button
+                key={opt.id}
+                className={`broker-flow-filter-btn ${selectedStatus.includes(opt.id) ? 'active' : ''}`}
+                onClick={() => toggleStatus(opt.id)}
+                title={`Toggle ${opt.label}`}
+              >
+                {opt.label.split(' ')[0]}
+              </button>
+            ))}
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: '1px', height: '16px', background: 'var(--border-color)', margin: '0 2px' }} />
+
+          {/* Time Filters */}
+          <div className="broker-flow-filters">
+            {filterOptions.map((days) => (
+              <button
+                key={days}
+                className={`broker-flow-filter-btn ${lookbackDays === days ? 'active' : ''}`}
+                onClick={() => setLookbackDays(days)}
+              >
+                {days}D
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -198,6 +234,9 @@ function BrokerFlowRow({
   tradingDates: string[];
 }) {
   const brokerInfo = getBrokerInfo(activity.broker_code);
+  const displayType = brokerInfo.type !== 'Unknown' 
+    ? brokerInfo.type 
+    : (activity.broker_status === 'Bandar' ? 'Smart Money' : activity.broker_status);
   
   return (
     <tr>
@@ -212,10 +251,10 @@ function BrokerFlowRow({
             {activity.broker_code}
           </span>
           <span 
-            className={`broker-type-label ${brokerInfo.type.toLowerCase()}`}
+            className={`broker-type-label ${brokerInfo.type !== 'Unknown' ? brokerInfo.type.toLowerCase() : activity.broker_status.toLowerCase()}`}
             style={{ fontSize: '0.65rem', opacity: 0.8 }}
           >
-            {brokerInfo.type}
+            {displayType}
           </span>
         </div>
       </td>

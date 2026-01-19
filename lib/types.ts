@@ -293,3 +293,26 @@ export interface BrokerFlowResponse {
   sort_by: string;
   activities: BrokerFlowActivity[];
 }
+
+// Background Job Log Types
+export interface BackgroundJobLogEntry {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+  emiten?: string;
+  details?: Record<string, unknown>;
+}
+
+export interface BackgroundJobLog {
+  id: number;
+  job_name: string;
+  status: 'running' | 'completed' | 'failed';
+  started_at: string;
+  completed_at?: string;
+  success_count: number;
+  error_count: number;
+  total_items: number;
+  log_entries: BackgroundJobLogEntry[];
+  error_message?: string;
+  metadata?: Record<string, unknown>;
+}

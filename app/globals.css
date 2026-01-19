@@ -429,8 +429,7 @@ h3 {
   font-size: 0.8rem;
   color: #333;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  max-height: 600px;
-
+  overflow: hidden;
 }
 
 .compact-header {
@@ -1562,4 +1561,199 @@ h3 {
 
 .chartbit-btn:hover svg {
   transform: scale(1.1);
+}
+
+/* ===== Job Logs Card ===== */
+.job-logs-container {
+  margin-top: 1rem;
+  padding: 0 0.5rem;
+}
+
+.job-logs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.show-all-btn {
+  background: transparent;
+  border: none;
+  color: var(--accent-primary);
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 2px 8px;
+  opacity: 0.7;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.show-all-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.job-logs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.job-log-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.job-log-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.job-log-item.active {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--accent-primary);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.job-log-item.has-error {
+  border-color: rgba(255, 77, 77, 0.3);
+}
+
+.job-log-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.job-log-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.job-log-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.job-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.job-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.dot-separator {
+  opacity: 0.5;
+}
+
+.job-log-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.job-stats {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.stat.success { color: var(--accent-success); }
+.stat.error { color: #ff4d4d; }
+
+.job-duration {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.job-log-details {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.5rem;
+}
+
+.job-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 77, 77, 0.1);
+  color: #ff4d4d;
+  font-size: 0.7rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  border: 1px solid rgba(255, 77, 77, 0.1);
+}
+
+.log-entries-scroll {
+  max-height: 250px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding-right: 4px;
+}
+
+.log-entries-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.log-entries-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.log-entry-line {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.65rem;
+  padding: 0.15rem 0.25rem;
+  border-radius: 3px;
+  line-height: 1.4;
+  display: flex;
+  gap: 0.5rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.entry-time {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.entry-ticker {
+  color: var(--accent-primary);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.entry-msg {
+  color: var(--text-secondary);
+}
+
+.level-error .entry-msg { color: #ff4d4d; }
+.level-warn .entry-msg { color: var(--accent-warning); }
+.level-info .entry-msg { color: var(--text-primary); }
+
+.no-entries {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  padding: 1rem;
 }

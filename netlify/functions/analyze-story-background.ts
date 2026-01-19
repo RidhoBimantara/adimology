@@ -1,19 +1,40 @@
-import { updateAgentStory } from '../../lib/supabase';
+import { 
+  updateAgentStory, 
+  createBackgroundJobLog, 
+  appendBackgroundJobLogEntry, 
+  updateBackgroundJobLog 
+} from '../../lib/supabase';
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 export default async (req: Request) => {
   const startTime = Date.now();
+  let jobLogId: number | null = null;
+  const url = new URL(req.url);
+  const emiten = url.searchParams.get('emiten')?.toUpperCase();
+  const storyId = url.searchParams.get('id');
+
   console.log('[Agent Story] Starting background analysis with Gemini 3...');
 
   try {
-    const url = new URL(req.url);
-    const emiten = url.searchParams.get('emiten')?.toUpperCase();
-    const storyId = url.searchParams.get('id');
-
     if (!emiten || !storyId) {
       return new Response(JSON.stringify({ error: 'Missing emiten or id' }), { status: 400 });
+    }
+
+    // Create job log entry
+    try {
+      const jobLog = await createBackgroundJobLog('analyze-story', 1);
+      jobLogId = jobLog.id;
+      if (jobLogId) {
+        await appendBackgroundJobLogEntry(jobLogId, {
+          level: 'info',
+          message: `Starting AI Story Analysis`,
+          emiten,
+        });
+      }
+    } catch (logError) {
+      console.error('[Agent Story] Failed to create job log:', logError);
     }
 
     let keyStatsData = null;
@@ -25,17 +46,32 @@ export default async (req: Request) => {
     }
 
     if (!GEMINI_API_KEY) {
+      const errMsg = 'GEMINI_API_KEY not configured';
       await updateAgentStory(parseInt(storyId), {
         status: 'error',
-        error_message: 'GEMINI_API_KEY not configured'
+        error_message: errMsg
       });
+      
+      if (jobLogId) {
+        await updateBackgroundJobLog(jobLogId, {
+          status: 'failed',
+          error_message: errMsg,
+        });
+      }
+      
       return new Response(JSON.stringify({ error: 'API key not configured' }), { status: 500 });
     }
 
-    // Update status to processing
+    // Update agent story status to processing
     await updateAgentStory(parseInt(storyId), { status: 'processing' });
 
-    console.log(`[Agent Story] Analyzing ${emiten} using Gemini 3 Flash Preview (Thinking HIGH)...`);
+    if (jobLogId) {
+      await appendBackgroundJobLogEntry(jobLogId, {
+        level: 'info',
+        message: `Analyzing using Gemini 3 Flash Preview (Thinking HIGH)...`,
+        emiten,
+      });
+    }
 
     const ai = new GoogleGenAI({
       apiKey: GEMINI_API_KEY,
@@ -131,7 +167,13 @@ Berikan analisis dalam format JSON dengan struktur berikut (PASTIKAN HANYA OUTPU
       }
     }
 
-    console.log('[Agent Story] Gemini response received via stream');
+    if (jobLogId) {
+      await appendBackgroundJobLogEntry(jobLogId, {
+        level: 'info',
+        message: `Gemini response received, parsing results...`,
+        emiten,
+      });
+    }
 
     // Parse JSON from response
     let analysisResult;
@@ -143,12 +185,27 @@ Berikan analisis dalam format JSON dengan struktur berikut (PASTIKAN HANYA OUTPU
         throw new Error('No JSON found in response');
       }
     } catch (parseError) {
-      console.error('[Agent Story] Failed to parse response:', parseError);
-      console.log('[Agent Story] Raw response:', fullText);
+      const errMsg = 'Failed to parse AI response';
+      console.error('[Agent Story] Parse error:', parseError);
+      
       await updateAgentStory(parseInt(storyId), {
         status: 'error',
-        error_message: 'Failed to parse AI response'
+        error_message: errMsg
       });
+
+      if (jobLogId) {
+        await appendBackgroundJobLogEntry(jobLogId, {
+          level: 'error',
+          message: errMsg,
+          emiten,
+          details: { raw: fullText.substring(0, 500) }
+        });
+        await updateBackgroundJobLog(jobLogId, {
+          status: 'failed',
+          error_message: errMsg,
+        });
+      }
+
       return new Response(JSON.stringify({ error: 'Parse error' }), { status: 500 });
     }
 
@@ -166,10 +223,45 @@ Berikan analisis dalam format JSON dengan struktur berikut (PASTIKAN HANYA OUTPU
     const duration = (Date.now() - startTime) / 1000;
     console.log(`[Agent Story] Analysis completed for ${emiten} in ${duration}s`);
 
+    if (jobLogId) {
+      await appendBackgroundJobLogEntry(jobLogId, {
+        level: 'info',
+        message: `Analysis completed successfully`,
+        emiten,
+        details: { duration_seconds: duration }
+      });
+      await updateBackgroundJobLog(jobLogId, {
+        status: 'completed',
+        success_count: 1,
+        metadata: { duration_seconds: duration }
+      });
+    }
+
     return new Response(JSON.stringify({ success: true, emiten }), { status: 200 });
 
   } catch (error) {
+    const errMsg = String(error);
     console.error('[Agent Story] Critical error:', error);
-    return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    
+    if (jobLogId) {
+      await appendBackgroundJobLogEntry(jobLogId, {
+        level: 'error',
+        message: `Analysis failed: ${errMsg}`,
+        emiten,
+      });
+      await updateBackgroundJobLog(jobLogId, {
+        status: 'failed',
+        error_message: errMsg,
+      });
+    }
+
+    if (storyId) {
+      await updateAgentStory(parseInt(storyId), {
+        status: 'error',
+        error_message: errMsg
+      });
+    }
+
+    return new Response(JSON.stringify({ error: errMsg }), { status: 500 });
   }
 };
