@@ -47,9 +47,11 @@ export async function POST(request: NextRequest) {
     const story = await createAgentStory(emiten);
 
     // Trigger background function
-    const baseUrl = process.env.NETLIFY_FUNCTION_URL || 
-                   process.env.URL || 
-                   'http://localhost:8888';
+    const host = request.headers.get('host');
+    const baseUrl = host?.includes('localhost') 
+      ? 'http://localhost:8888' 
+      : `https://${host}`;
+
     
     const functionUrl = baseUrl.includes('/.netlify/functions') 
       ? baseUrl 

@@ -68,7 +68,6 @@ Ikuti langkah-langkah berikut secara berurutan:
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key dari Supabase | ✅ |
    | `CRON_SECRET` | String acak untuk keamanan cron | ✅ |
    | `GEMINI_API_KEY` | API Key dari [Google AI Studio](https://aistudio.google.com/) | ✅ |
-   | `NETLIFY_FUNCTION_URL` | URL Netlify Anda (contoh: `https://your-app.netlify.app`) | ✅ |
 
 5. Klik **Deploy site** dan tunggu hingga selesai
 6. Catat URL Netlify Anda (contoh: `https://your-app.netlify.app`)
@@ -251,7 +250,6 @@ Aplikasi akan berjalan di [http://localhost:3000](http://localhost:3000)
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | ✅ | Anon key Supabase |
 | `CRON_SECRET` | ✅ | ❌ | Secret untuk scheduled functions |
 | `GEMINI_API_KEY` | ✅ | ✅ | API Key Google AI Studio |
-| `NETLIFY_FUNCTION_URL` | ✅ | ❌ | URL base Netlify app |
 | `STOCKBIT_JWT_TOKEN` | ❌ | ⚠️ | Fallback token manual |
 
 ---
