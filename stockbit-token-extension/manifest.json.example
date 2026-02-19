@@ -8,7 +8,7 @@
   ],
   "host_permissions": [
     "https://*.stockbit.com/*",
-    "https://adymologyridho.netlify.app/"
+    "https://adymologyridho.netlify.app/*"
   ],
   "background": {
     "service_worker": "background.js"
